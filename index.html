@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manajemen Siswa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    /* Background dinamis gradien di seluruh body */
+    body {
+      background: linear-gradient(270deg, #ff6ec4, #7873f5, #4ade80, #facc15, #ff6ec4);
+      background-size: 1000% 1000%;
+      animation: bgGradientMove 30s ease infinite;
+    }
+
+    @keyframes bgGradientMove {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    /* Jam digital dengan teks gradien */
+    #digitalClock {
+      background: linear-gradient(270deg, #ff6ec4, #7873f5, #4ade80, #facc15, #ff6ec4);
+      background-size: 1000% 1000%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradientAnimation 15s ease infinite;
+    }
+
+    @keyframes gradientAnimation {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+  </style>
+</head>
+<body class="p-6">
+  <div class="max-w-5xl mx-auto bg-white bg-opacity-90 p-6 rounded-xl shadow-xl border-4 border-blue-300">
+
+    <!-- Jam Digital -->
+    <div class="text-center mb-4">
+      <div id="digitalClock" class="text-5xl font-mono font-extrabold tracking-widest select-none"></div>
+    </div>
+
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Manajemen Siswa</h1>
+
+    <!-- Input Pencarian -->
+    <div class="mb-4">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Cari nama, orang tua, kelas, usia..."
+        class="w-full md:w-1/2 border border-gray-400 rounded p-2"
+        oninput="searchSiswa()"
+      />
+    </div>
+
+    <!-- Tabel -->
+    <div class="overflow-x-auto border-2 border-gray-300 rounded-xl mb-6 bg-white bg-opacity-80">
+      <table class="w-full text-sm text-left text-gray-700" id="userTable">
+        <thead class="text-xs text-white uppercase bg-blue-600">
+          <tr>
+            <th class="px-4 py-2">No</th>
+            <th class="px-4 py-2">Nama</th>
+            <th class="px-4 py-2">Orang Tua</th>
+            <th class="px-4 py-2">Kelas</th>
+            <th class="px-4 py-2">Usia</th>
+            <th class="px-4 py-2">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Form -->
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Form Tambah / Edit</h2>
+    <form id="userForm" class="space-y-4 border-2 border-gray-300 p-4 rounded-xl bg-gray-50 bg-opacity-90">
+      <input type="hidden" id="editIndex" />
+      <div>
+        <label class="block text-sm">Nama</label>
+        <input type="text" id="nama" class="w-full border border-gray-400 rounded p-2" required />
+      </div>
+      <div>
+        <label class="block text-sm">Nama Orang Tua</label>
+        <input type="text" id="ortu" class="w-full border border-gray-400 rounded p-2" required />
+      </div>
+      <div>
+        <label class="block text-sm">Kelas</label>
+        <input type="text" id="kelas" class="w-full border border-gray-400 rounded p-2" required />
+      </div>
+      <div>
+        <label class="block text-sm">Usia</label>
+        <input type="number" id="usia" class="w-full border border-gray-400 rounded p-2" required min="1" />
+      </div>
+      <div class="flex space-x-2">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Simpan</button>
+        <button type="button" onclick="resetForm()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
+      </div>
+    </form>
+
+    <!-- Export -->
+    <div class="mt-6 text-right space-x-2">
+      <button onclick="exportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Export ke CSV</button>
+      <button onclick="exportToExcel()" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Export ke Excel</button>
+    </div>
+  </div>
+
+  <script>
+    // Jam digital
+    function updateClock() {
+      const clock = document.getElementById("digitalClock");
+      const now = new Date();
+      let h = now.getHours();
+      let m = now.getMinutes();
+      let s = now.getSeconds();
+
+      h = h < 10 ? "0" + h : h;
+      m = m < 10 ? "0" + m : m;
+      s = s < 10 ? "0" + s : s;
+
+      clock.textContent = `${h}:${m}:${s}`;
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Data dan fungsi manajemen siswa
+    let dataSiswa = JSON.parse(localStorage.getItem("dataSiswa")) || [];
+
+    function renderTable() {
+      const tbody = document.getElementById("tableBody");
+      tbody.innerHTML = "";
+      dataSiswa.forEach((siswa, index) => {
+        tbody.innerHTML += `
+          <tr class="border-t border-gray-300">
+            <td class="px-4 py-2">${index + 1}</td>
+            <td class="px-4 py-2">${siswa.nama}</td>
+            <td class="px-4 py-2">${siswa.ortu}</td>
+            <td class="px-4 py-2">${siswa.kelas}</td>
+            <td class="px-4 py-2">${siswa.usia}</td>
+            <td class="px-4 py-2 space-x-2">
+              <button onclick="editSiswa(${index})" class="bg-yellow-400 text-white px-2 py-1 rounded hover:bg-yellow-500">Edit</button>
+              <button onclick="deleteSiswa(${index})" class="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+      searchSiswa();
+    }
+
+    function saveToLocal() {
+      localStorage.setItem("dataSiswa", JSON.stringify(dataSiswa));
+    }
+
+    function resetForm() {
+      document.getElementById("userForm").reset();
+      document.getElementById("editIndex").value = "";
+    }
+
+    document.getElementById("userForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const nama = document.getElementById("nama").value.trim();
+      const ortu = document.getElementById("ortu").value.trim();
+      const kelas = document.getElementById("kelas").value.trim();
+      const usia = parseInt(document.getElementById("usia").value);
+      const editIndex = document.getElementById("editIndex").value;
+
+      if (!nama || !ortu || !kelas || !usia || usia <= 0) {
+        alert("Harap isi semua field dengan benar.");
+        return;
+      }
+
+      const data = { nama, ortu, kelas, usia };
+
+      if (editIndex === "") {
+        dataSiswa.push(data);
+        alert("Data siswa berhasil ditambahkan.");
+      } else {
+        dataSiswa[editIndex] = data;
+        alert("Data siswa berhasil diperbarui.");
+      }
+
+      saveToLocal();
+      renderTable();
+      resetForm();
+    });
+
+    function editSiswa(index) {
+      const siswa = dataSiswa[index];
+      document.getElementById("nama").value = siswa.nama;
+      document.getElementById("ortu").value = siswa.ortu;
+      document.getElementById("kelas").value = siswa.kelas;
+      document.getElementById("usia").value = siswa.usia;
+      document.getElementById("editIndex").value = index;
+    }
+
+    function deleteSiswa(index) {
+      if (confirm("Yakin ingin menghapus data ini?")) {
+        dataSiswa.splice(index, 1);
+        saveToLocal();
+        renderTable();
+      }
+    }
+
+    function searchSiswa() {
+      const keyword = document.getElementById("searchInput").value.toLowerCase();
+      const tbody = document.getElementById("tableBody");
+      tbody.innerHTML = "";
+
+      dataSiswa.forEach((siswa, index) => {
+        const combinedFields = `${siswa.nama} ${siswa.ortu} ${siswa.kelas} ${siswa.usia}`.toLowerCase();
+
+        if (combinedFields.includes(keyword)) {
+          tbody.innerHTML += `
+            <tr class="border-t border-gray-300">
+              <td class="px-4 py-2">${index + 1}</td>
+              <td class="px-4 py-2">${siswa.nama}</td>
+              <td class="px-4 py-2">${siswa.ortu}</td>
+              <td class="px-4 py-2">${siswa.kelas}</td>
+              <td class="px-4 py-2">${siswa.usia}</td>
+              <td class="px-4 py-2 space-x-2">
+                <button onclick="editSiswa(${index})" class="bg-yellow-400 text-white px-2 py-1 rounded hover:bg-yellow-500">Edit</button>
+                <button onclick="deleteSiswa(${index})" class="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">Hapus</button>
+              </td>
+            </tr>
+          `;
+        }
+      });
+    }
+
+    function exportToCSV() {
+      let csv = "No,Nama,Orang Tua,Kelas,Usia\n
